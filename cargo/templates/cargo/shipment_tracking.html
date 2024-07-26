@@ -1,0 +1,207 @@
+{% extends 'cargo/layout.html' %}
+{% load static %}
+
+{% block title %} Track you shipment cargo route runner {% endblock %}
+
+{% block content %}
+<!-- Styles -->
+<style>
+    #chartdiv {
+      width: 100%;
+      height: 500px;
+      max-width: 100%;
+    }
+    </style>
+    
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/map.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/geodata/worldLow.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+    
+    <!-- Chart code -->
+    <script>
+    am5.ready(function() {
+    
+    // Create root element
+    // https://www.amcharts.com/docs/v5/getting-started/#Root_element
+    var root = am5.Root.new("chartdiv");
+    
+    
+    // Set themes
+    // https://www.amcharts.com/docs/v5/concepts/themes/
+    root.setThemes([
+      am5themes_Animated.new(root)
+    ]);
+    
+    
+    // Create the map chart
+    // https://www.amcharts.com/docs/v5/charts/map-chart/
+    var chart = root.container.children.push(am5map.MapChart.new(root, {
+      panX: "rotateX",
+      panY: "rotateY",
+      projection: am5map.geoOrthographic(),
+      paddingBottom: 20,
+      paddingTop: 20,
+      paddingLeft: 20,
+      paddingRight: 20
+    }));
+    
+    
+    
+    // Create main polygon series for countries
+    // https://www.amcharts.com/docs/v5/charts/map-chart/map-polygon-series/
+    var polygonSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {
+      geoJSON: am5geodata_worldLow 
+    }));
+    
+    polygonSeries.mapPolygons.template.setAll({
+      tooltipText: "{name}",
+      toggleKey: "active",
+      interactive: true
+    });
+    
+    polygonSeries.mapPolygons.template.states.create("hover", {
+      fill: root.interfaceColors.get("primaryButtonHover")
+    });
+    
+    polygonSeries.mapPolygons.template.states.create("active", {
+      fill: root.interfaceColors.get("primaryButtonHover")
+    });
+    
+    
+    // Create series for background fill
+    // https://www.amcharts.com/docs/v5/charts/map-chart/map-polygon-series/#Background_polygon
+    var backgroundSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {}));
+    backgroundSeries.mapPolygons.template.setAll({
+      fill: root.interfaceColors.get("alternativeBackground"),
+      fillOpacity: 0.1,
+      strokeOpacity: 0
+    });
+    backgroundSeries.data.push({
+      geometry: am5map.getGeoRectangle(90, 180, -90, -180)
+    });
+    
+    var graticuleSeries = chart.series.unshift(
+      am5map.GraticuleSeries.new(root, {
+        step: 10
+      })
+    );
+    
+    graticuleSeries.mapLines.template.set("strokeOpacity", 0.1)
+    
+    // Set up events
+    var previousPolygon;
+    
+    polygonSeries.mapPolygons.template.on("active", function(active, target) {
+      if (previousPolygon && previousPolygon != target) {
+        previousPolygon.set("active", false);
+      }
+      if (target.get("active")) {
+        selectCountry(target.dataItem.get("id"));
+      }
+      previousPolygon = target;
+    });
+    
+    function selectCountry(id) {
+      var dataItem = polygonSeries.getDataItemById(id);
+      var target = dataItem.get("mapPolygon");
+      if (target) {
+        var centroid = target.geoCentroid();
+        if (centroid) {
+          chart.animate({ key: "rotationX", to: -centroid.longitude, duration: 1500, easing: am5.ease.inOut(am5.ease.cubic) });
+          chart.animate({ key: "rotationY", to: -centroid.latitude, duration: 1500, easing: am5.ease.inOut(am5.ease.cubic) });
+        }
+      }
+    }
+    
+    // Uncomment this to pre-center the globe on a country when it loads
+    //polygonSeries.events.on("datavalidated", function() {
+    //  selectCountry("AU");
+    //});
+    
+    
+    // Make stuff animate on load
+    chart.appear(1000, 100);
+    
+    }); // end am5.ready()
+    </script>
+    
+    <!-- HTML -->
+    <div id="chartdiv"></div>
+           
+
+                <!-- Begin Page Content -->
+                {% for sending in sendings %}
+                {% if sending.user == request.user %}
+                {% if sending.status != Received %}
+                <div class="container-fluid">
+
+                    <!-- Page Heading -->
+                    <h1 class="h3 mb-1 text-gray-800">Track Item Sent</h1>
+                        
+                    <p class="mb-4"></p>
+
+                    <!-- Content Row -->
+                    <div class="row">
+
+                        <!-- First Column -->
+                        <div class="col-lg-8">
+                            <!-- Earnings (Monthly) Card Example -->
+                        
+                            <div class="card border-left-info shadow h-100 py-2">
+                                <div class="card-body">
+                       
+                        <div class="row no-gutters align-items-center">
+                            <div class="col-auto">
+                                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">{{ sending.status }}</div>
+                            </div>
+                            <div class="col">
+                                <div class="progress progress-sm mr-2">
+                                    <div class="progress-bar bg-info" role="progressbar"
+                                        style="width: {{ sending.percent }}%" aria-valuenow="50" aria-valuemin="0"
+                                        aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                       
+                                </div>
+                            
+                        </div>
+
+                            
+
+                        </div>
+
+                        <!-- Second Column -->
+                        <div class="col-lg-4">
+
+                            <!-- Background Gradient Utilities -->
+                            <div class="card shadow mb-4">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">About delivery
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    
+                                    <div class="px-3 py-5 bg-gradient-success text-white">From : {{ sending.country }}</div>
+                                    <div class="px-3 py-5 bg-gradient-success text-white">Name : {{ sending.name }}</div>
+
+                                   
+                                    
+                                </div>
+                            </div>
+                        </div>                     
+                    </div>
+
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+                <!-- /.container-fluid -->
+
+            </div>
+            <!-- End of Main Content -->
+
+           {% endblock %}
